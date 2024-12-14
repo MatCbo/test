@@ -1,0 +1,316 @@
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3315.6176720776084 1355.8856674844621" width="3315.6176720776084" height="1355.8856674844621" class="excalidraw-svg">
+  <!-- svg-source:excalidraw -->
+  
+  <script type="application/ecmascript">
+    <![CDATA[
+      const slides = {
+        boxes: {
+          'box1': {
+            topLeft: { x: -41.209022521972656, y: -37.93417739868164 },
+            bottomRight: { x: 479.6108093261719, y: 1000.4503784179688 }
+          },
+          'box2': {
+            topLeft: { x: 1176.627197265625, y: 229.1809539794922 },
+            bottomRight: { x: 1661.940185546875, y: 1076.889404296875 }
+          },
+          'box3': {
+            topLeft: { x: 2811.982177734375 , y: 263.8595886230469 },
+            bottomRight: { x: 3372.4541015625, y: 1417.680419921875 }
+          }
+        },
+        initialBox: 'box1',
+        transitions: [
+          {
+            nextBox: 'box2'
+          },
+          {
+            nextBox: 'box3'
+          }
+        ]
+      };
+
+      const svg = document.querySelector("svg");
+      let viewBox = svg.viewBox.baseVal;
+
+      window.addEventListener('resize', resizeSvgToFullAvailableScreenSize);
+      resizeSvgToFullAvailableScreenSize();
+      animateToBox(slides.boxes[slides.initialBox]);
+      let nextTransitionIndex = 0;
+
+      let toolState = initializeHandToolState();
+      
+
+
+      function resizeSvgToFullAvailableScreenSize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        svg.setAttribute("width", width);
+        svg.setAttribute("height", height);
+      }
+
+      function browserToSVGCoordinates(browserX, browserY) {
+        const browserPoint = svg.createSVGPoint();
+        browserPoint.x = browserX;
+        browserPoint.y = browserY;
+        const svgPoint = browserPoint.matrixTransform(svg.getScreenCTM().inverse());
+        return svgPoint;
+      }
+
+      function initializeLaserToolState() {
+        svg.style.cursor = "crosshair";
+        
+        const state = {
+          type: 'LaserTool',
+          drawingPath: null,
+          onMouseDown: (e) => {
+            e.preventDefault();
+            const startingPoint = browserToSVGCoordinates(e.clientX, e.clientY);
+            console.log(`SVG coordinates: x=${startingPoint.x} y=${startingPoint.y}`);
+            state.drawingPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            state.drawingPath.setAttribute("d", `M ${startingPoint.x} ${startingPoint.y}`);
+            state.drawingPath.setAttribute("fill", "none");
+            state.drawingPath.setAttribute("stroke", "red");
+            state.drawingPath.setAttribute("stroke-width", "2");
+            state.drawingPath.setAttribute("stroke-linecap", "round");
+            state.drawingPath.setAttribute("style", "filter: drop-shadow(0 0 4px red);");
+            svg.appendChild(state.drawingPath);
+          },
+          onMouseMove: (e) => {
+            e.preventDefault();
+            if(!state.drawingPath) {
+              return;
+            }
+            const currentPoint = browserToSVGCoordinates(e.clientX, e.clientY);
+            const d = state.drawingPath.getAttribute("d");
+            state.drawingPath.setAttribute("d", `${d} L ${currentPoint.x} ${currentPoint.y}`);
+          },
+          onMouseUp: (e) => {
+            e.preventDefault();
+            const pathToFadeAndRemove = state.drawingPath;
+            if(pathToFadeAndRemove) {
+              state.drawingPath = null;
+              pathToFadeAndRemove.animate([{ opacity: 1 }, { opacity: 0 }], {
+                duration: 5000, // Fade out duration
+                easing: "ease-out",
+              }).onfinish = () => {
+                pathToFadeAndRemove.remove();
+              };
+            }
+          },
+          onWheel: (e) => {
+            onWheelHandler(e);
+          }
+        };
+
+        return state;
+      }
+
+      function initializeHandToolState() {
+        svg.style.cursor = "grab";
+        
+        const state = {
+          type: 'HandTool',
+          isDragging: false,
+          previousX: null,
+          previousY: null,
+          onMouseDown: (e) => {
+            e.preventDefault();
+            state.isDragging = true;
+            svg.style.cursor = "grabbing";
+            state.previousX = e.clientX;
+            state.previousY = e.clientY;
+          },
+          onMouseMove: (e) => {
+            e.preventDefault();
+            if(!state.isDragging) {
+              return;
+            }
+
+            const dx = (state.previousX - e.clientX) * (viewBox.width / svg.clientWidth);
+            const dy = (state.previousY - e.clientY) * (viewBox.height / svg.clientHeight);
+
+            svg.setAttribute('viewBox', `${viewBox.x + dx} ${viewBox.y + dy} ${viewBox.width} ${viewBox.height}`);
+
+            state.previousX = e.clientX;
+            state.previousY = e.clientY;
+          },
+          onMouseUp: (e) => {
+            state.isDragging = false;
+            svg.style.cursor = "grab";
+          },
+          onWheel: (e) => {
+            onWheelHandler(e);
+          }
+        };
+
+        return state;
+      }
+
+      function onWheelHandler(e) {
+        const zoomFactor = 1.05; // Change to zoom more or less on every scroll increment
+        const scaleFactor = e.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
+
+        const newWidth = viewBox.width * scaleFactor;
+        const newHeight = viewBox.height * scaleFactor;
+
+        const svgRect = svg.getBoundingClientRect();
+        const mouseX = e.clientX - svgRect.left;
+        const mouseY = e.clientY - svgRect.top;
+        const mouseSvgX = viewBox.x + (mouseX / svgRect.width) * viewBox.width;
+        const mouseSvgY = viewBox.y + (mouseY / svgRect.height) * viewBox.height;
+
+        viewBox.x = mouseSvgX - (mouseSvgX - viewBox.x) * scaleFactor;
+        viewBox.y = mouseSvgY - (mouseSvgY - viewBox.y) * scaleFactor;
+        viewBox.width = newWidth;
+        viewBox.height = newHeight;
+
+        svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+      }
+
+      function adjustedViewBox(targetBox) {
+        const x = targetBox.topLeft.x;
+        const y = targetBox.topLeft.y;
+        const width = targetBox.bottomRight.x - targetBox.topLeft.x;
+        const height = targetBox.bottomRight.y - targetBox.topLeft.y;
+        
+        
+        const rectAspectRatio = width / height;
+
+        // Calculate the aspect ratio of the viewport
+        const svgWidth = svg.clientWidth || svg.getBoundingClientRect().width;
+        const svgHeight = svg.clientHeight || svg.getBoundingClientRect().height;
+        const viewportAspectRatio = svgWidth / svgHeight;
+
+        // Adjust the viewBox dimensions to preserve the aspect ratio
+        let adjustedWidth, adjustedHeight, offsetX, offsetY;
+
+        if (rectAspectRatio > viewportAspectRatio) {
+            // Rectangle is wider than the viewport: match width, pad height
+            adjustedWidth = width;
+            adjustedHeight = width / viewportAspectRatio;
+            offsetX = x;
+            offsetY = y - (adjustedHeight - height) / 2;
+        } else {
+            // Rectangle is taller than the viewport: match height, pad width
+            adjustedWidth = height * viewportAspectRatio;
+            adjustedHeight = height;
+            offsetX = x - (adjustedWidth - width) / 2;
+            offsetY = y;
+        }
+
+        return {
+          x: offsetX,
+          y: offsetY,
+          width: adjustedWidth,
+          height: adjustedHeight
+        };
+      }
+
+      function animateToBox(targetBox) {
+        const adjustedTargetViewBox = adjustedViewBox(targetBox);
+        const currentViewBox = { x: viewBox.x, y: viewBox.y, width: viewBox.width, height: viewBox.height};
+
+        requestAnimationFrame((currentTimestamp) => doAnimateToBox(currentViewBox, adjustedTargetViewBox, currentTimestamp, currentTimestamp));
+      }
+
+      // function viewBoxToString(viewBox) {
+      //   return `{ x: ${viewBox.x}, y: ${viewBox.y}, width: ${viewBox.width}, height: ${viewBox.height} }`;
+      // }
+
+      function doAnimateToBox(startBox, targetBox, startTimestamp, currentTimestamp) {
+        const animationDurationMillis = 1500;
+
+        const elapsedTime = currentTimestamp - startTimestamp;
+        const progress = animationDurationMillis === 0 ? 1 : Math.min(elapsedTime / animationDurationMillis, 1);
+        const adjustedProgress = easeInOutQuad(progress); // Smoother, more natural transition, accelerates then decelerates
+
+        const intermediateViewBox = {
+          x: startBox.x + (targetBox.x - startBox.x) * adjustedProgress,
+          y: startBox.y + (targetBox.y - startBox.y) * adjustedProgress,
+          width: startBox.width + (targetBox.width - startBox.width) * adjustedProgress,
+          height: startBox.height + (targetBox.height - startBox.height) * adjustedProgress
+        };
+
+        // console.log(`startBox=${viewBoxToString(startBox)}\ntargetBox=${viewBoxToString(targetBox)}\nstartTimestamp=${startTimestamp}\ncurrentTimestam=${currentTimestamp}\nelapsedTime=${elapsedTime}\nprogress=${progress}\nintermediateViewBox=${viewBoxToString(intermediateViewBox)}`)
+
+        svg.setAttribute("viewBox", `${intermediateViewBox.x} ${intermediateViewBox.y} ${intermediateViewBox.width} ${intermediateViewBox.height}`);
+
+        if(progress < 1) {
+          requestAnimationFrame((currentTimestamp) => doAnimateToBox(startBox, targetBox, startTimestamp, currentTimestamp));
+        }
+      }
+
+      function easeInOutQuad(progress) {
+        return progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      }
+
+      function processNextTransition() {
+        const nextBox = nextTransitionIndex === slides.transitions.length ? slides.boxes[slides.initialBox] : slides.boxes[slides.transitions[nextTransitionIndex].nextBox];
+        animateToBox(nextBox);
+        nextTransitionIndex = nextTransitionIndex + 1;
+        nextTransitionIndex = nextTransitionIndex % (slides.transitions.length + 1);
+      }
+
+      function processPreviousTransition() {
+        nextTransitionIndex = nextTransitionIndex - 1 + (slides.transitions.length + 1);
+        nextTransitionIndex = nextTransitionIndex % (slides.transitions.length + 1);
+        const previousBox = nextTransitionIndex === 0 ? slides.boxes[slides.initialBox] : slides.boxes[slides.transitions[nextTransitionIndex - 1].nextBox];
+        animateToBox(previousBox);
+      }
+
+      svg.addEventListener("mousedown", (e) => {
+        const onMouseDownHandler = toolState.onMouseDown;
+        if(onMouseDownHandler) {
+          onMouseDownHandler(e);
+        }
+      });
+
+      svg.addEventListener("mousemove", (e) => {
+        const onMouseMoveHandler = toolState.onMouseMove;
+        if(onMouseMoveHandler) {
+          onMouseMoveHandler(e);
+        }
+      });
+
+      svg.addEventListener("mouseup", (e) => {
+        const onMouseUpHandler = toolState.onMouseUp;
+        if(onMouseUpHandler) {
+          onMouseUpHandler(e);
+        }
+      });
+
+      svg.addEventListener("wheel", (e) => {
+        const onWheelHandler = toolState.onWheel;
+        if(onWheelHandler) {
+          onWheelHandler(e);
+        }
+      });
+
+      svg.addEventListener('keydown', (e) => {
+        if(e.key === 'Tab') {
+          e.preventDefault();
+          if(toolState.type === 'HandTool') {
+            toolState = initializeLaserToolState();
+          } else if(toolState.type === 'LaserTool') {
+            toolState = initializeHandToolState();
+          } else {
+            console.log(`Unsupported toolState.type=${toolState.type}`)
+          }
+        } else if(e.key === 'n') {
+          processNextTransition();
+        } else if(e.key === 'p') {
+          processPreviousTransition();
+        }
+      });
+
+    ]]>
+  </script>
+
+
+  <defs>
+    <style class="style-fonts">
+      @font-face { font-family: Excalifont; src: url(data:font/woff2;base64,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); }
+    </style>
+    
+  </defs>
+  <g stroke-linecap="round" transform="translate(10 10) rotate(0 152.9058723449707 121.41182708740234)"><path d="M32 0 C92.13 2.08, 152.86 -0.45, 273.81 0 M32 0 C119.69 1.96, 206.19 1.3, 273.81 0 M273.81 0 C295.38 -0.75, 305.42 9.67, 305.81 32 M273.81 0 C295.36 -0.83, 305.47 9.49, 305.81 32 M305.81 32 C306.48 91.72, 306.31 150.58, 305.81 210.82 M305.81 32 C305.14 82.79, 304.85 132.1, 305.81 210.82 M305.81 210.82 C306.12 232.01, 294.86 243.81, 273.81 242.82 M305.81 210.82 C306.47 233.61, 296.14 242.07, 273.81 242.82 M273.81 242.82 C209.33 243.33, 144.94 240.66, 32 242.82 M273.81 242.82 C196.53 243.54, 118.76 244.3, 32 242.82 M32 242.82 C10.05 241.93, -0.76 232.97, 0 210.82 M32 242.82 C10.15 244.61, -1.69 231.85, 0 210.82 M0 210.82 C-2.66 165.73, -1.29 118.56, 0 32 M0 210.82 C-0.09 152.12, -0.58 94.25, 0 32 M0 32 C1.26 11.72, 10.91 0.3, 32 0 M0 32 C1.62 10.35, 9.79 1.68, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(156.14587783813477 118.91182708740234) rotate(0 6.7599945068359375 12.5)"><text x="6.7599945068359375" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">A</text></g><g stroke-linecap="round" transform="translate(23.69306182861328 335.89491271972656) rotate(0 160.20884704589844 110.45736694335938)"><path d="M32 0 C101.26 -2.04, 170.9 -0.67, 288.42 0 M32 0 C103.04 1.18, 174.7 1.99, 288.42 0 M288.42 0 C307.98 1.02, 320.02 10.62, 320.42 32 M288.42 0 C310.32 -0.06, 319.91 10.34, 320.42 32 M320.42 32 C320.7 69.95, 319.68 106.1, 320.42 188.91 M320.42 32 C320.93 90.6, 319.66 147.52, 320.42 188.91 M320.42 188.91 C321.14 210.98, 308.55 221.91, 288.42 220.91 M320.42 188.91 C320.74 212.03, 309.26 222.49, 288.42 220.91 M288.42 220.91 C231.85 223.21, 178.91 222.81, 32 220.91 M288.42 220.91 C222.1 218.47, 155.38 218.91, 32 220.91 M32 220.91 C9.96 219.47, -0.96 211.79, 0 188.91 M32 220.91 C9.88 219.56, -1.96 212.11, 0 188.91 M0 188.91 C-1.08 132.79, -2.87 75.3, 0 32 M0 188.91 C-0.94 152.36, 0.54 114.46, 0 32 M0 32 C1.26 11.94, 12.05 -1.34, 32 0 M0 32 C0.49 9.61, 11.01 -2.29, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(176.2919158935547 433.85227966308594) rotate(0 7.609992980957031 12.5)"><text x="7.609992980957031" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">B</text></g><g stroke-linecap="round" transform="translate(30.014936229830028 611.8529240420505) rotate(0 190.79000091552734 136.93063354492188)"><path d="M32 0 C101.18 1.48, 168.18 0.9, 349.58 0 M32 0 C111.54 0.16, 192.48 1.24, 349.58 0 M349.58 0 C372.82 1.16, 382 12.26, 381.58 32 M349.58 0 C369.33 2.09, 380.14 10.92, 381.58 32 M381.58 32 C381.4 92.79, 381.26 154.37, 381.58 241.86 M381.58 32 C379.93 109.61, 379.46 186.14, 381.58 241.86 M381.58 241.86 C381.25 261.54, 371.96 274.44, 349.58 273.86 M381.58 241.86 C381.42 262.88, 369.3 276.09, 349.58 273.86 M349.58 273.86 C247.21 274.28, 145.12 275.8, 32 273.86 M349.58 273.86 C282.89 276.24, 217.65 275.12, 32 273.86 M32 273.86 C8.72 274.18, -0.79 262.24, 0 241.86 M32 273.86 C8.71 275.11, -2.25 263.56, 0 241.86 M0 241.86 C-3.33 158.52, -0.93 75.98, 0 32 M0 241.86 C2 169.29, 1.87 95.44, 0 32 M0 32 C-1.66 12.29, 9.11 1.32, 32 0 M0 32 C-0.32 10.61, 11.99 -0.96, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(214.51494385922456 736.2835575869724) rotate(0 6.2899932861328125 12.5)"><text x="6.2899932861328125" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">C</text></g><g stroke-linecap="round" transform="translate(1253.0812498238245 266.841514877894) rotate(0 120.95541381835938 84.8969955444336)"><path d="M32 0 C89.91 -3.01, 148.22 -0.85, 209.91 0 M32 0 C68.22 -0.79, 106.5 -2.38, 209.91 0 M209.91 0 C229.29 0.32, 241.12 9.72, 241.91 32 M209.91 0 C229.28 1.24, 239.66 11.03, 241.91 32 M241.91 32 C241.13 73.63, 243.85 116.17, 241.91 137.79 M241.91 32 C241.89 69.08, 241.74 104.7, 241.91 137.79 M241.91 137.79 C240.25 160.75, 229.69 171.12, 209.91 169.79 M241.91 137.79 C241.59 159.08, 232.56 168.84, 209.91 169.79 M209.91 169.79 C168.51 169.22, 132.29 168.01, 32 169.79 M209.91 169.79 C150.68 171.04, 92.85 170.26, 32 169.79 M32 169.79 C9.27 169.9, -0.93 158.1, 0 137.79 M32 169.79 C9.17 171.71, 0.83 160.93, 0 137.79 M0 137.79 C-0.79 100.85, -0.35 62.12, 0 32 M0 137.79 C-0.94 110.28, -0.89 83.89, 0 32 M0 32 C1.65 11.48, 8.8 -1.18, 32 0 M0 32 C-1.69 9.27, 8.72 2.11, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(1366.2366682198206 339.2385104223276) rotate(0 7.799995422363281 12.5)"><text x="7.799995422363281" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">D</text></g><g stroke-linecap="round" transform="translate(1253.0812498238245 552.5701067968394) rotate(0 134.64846801757812 94.48214721679688)"><path d="M32 0 C79.34 -0.31, 124.09 -2.85, 237.3 0 M32 0 C110.16 -1.23, 189.08 -1.58, 237.3 0 M237.3 0 C257.08 -0.14, 269.4 8.85, 269.3 32 M237.3 0 C257.86 1.75, 267.14 11.3, 269.3 32 M269.3 32 C270.47 63.27, 268.91 95.48, 269.3 156.96 M269.3 32 C268.07 70.96, 269.08 109.05, 269.3 156.96 M269.3 156.96 C270.4 177.63, 259.22 187.83, 237.3 188.96 M269.3 156.96 C270.03 177.49, 258.04 187.86, 237.3 188.96 M237.3 188.96 C173.02 185.88, 110.75 188.82, 32 188.96 M237.3 188.96 C166.69 187.35, 96.64 188.71, 32 188.96 M32 188.96 C12.36 189.35, 1.67 176.38, 0 156.96 M32 188.96 C10.62 191.06, -1.11 180.31, 0 156.96 M0 156.96 C-0.52 132.2, 1.37 104.43, 0 32 M0 156.96 C-1.27 118.52, -0.79 81.72, 0 32 M0 32 C0.77 9.01, 8.82 0.92, 32 0 M0 32 C-1.91 10.57, 10.73 1.42, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(1380.2297178414026 634.5522540136362) rotate(0 7.5 12.5)"><text x="7.5" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">E</text></g><g stroke-linecap="round" transform="translate(1241.213940253512 809.0868304296519) rotate(0 172.5325927734375 98.59005737304688)"><path d="M32 0 C111.42 0.96, 194.64 2.45, 313.07 0 M32 0 C89.65 0.93, 148.93 2.23, 313.07 0 M313.07 0 C334.79 1.67, 343.15 10.62, 345.07 32 M313.07 0 C336.49 -1.11, 347.08 8.51, 345.07 32 M345.07 32 C346.89 67.96, 344.89 102.19, 345.07 165.18 M345.07 32 C343.92 81.68, 345.13 131.53, 345.07 165.18 M345.07 165.18 C343.41 184.66, 335.32 195.52, 313.07 197.18 M345.07 165.18 C344.97 186.58, 335.82 195.78, 313.07 197.18 M313.07 197.18 C257.13 194.92, 199.04 196.91, 32 197.18 M313.07 197.18 C235.7 199.61, 157.56 198.89, 32 197.18 M32 197.18 C10.43 198.77, -0.32 188.1, 0 165.18 M32 197.18 C10.27 195.58, 1.53 186.95, 0 165.18 M0 165.18 C1.25 116.34, -0.87 63.65, 0 32 M0 165.18 C0.18 127.77, 0.57 88.56, 0 32 M0 32 C-1.52 10.95, 12.61 0.26, 32 0 M0 32 C-1.9 10.1, 11.92 2.29, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(1406.7465330269495 895.1768878026987) rotate(0 7 12.5)"><text x="7" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">F</text></g><g stroke-linecap="round" transform="translate(2903.954464069796 304.7122069821655) rotate(0 118.6732177734375 108.63162994384766)"><path d="M32 0 C99 -1.54, 168.32 -1.63, 205.35 0 M32 0 C98.42 1.4, 164.32 0.9, 205.35 0 M205.35 0 C227.32 0.84, 239.18 9.39, 237.35 32 M205.35 0 C226.47 -0.27, 237.92 10.03, 237.35 32 M237.35 32 C239.21 84.39, 239.15 141.76, 237.35 185.26 M237.35 32 C236.63 80.98, 235.49 128.19, 237.35 185.26 M237.35 185.26 C236.79 206.94, 224.77 217.18, 205.35 217.26 M237.35 185.26 C238.7 204.46, 224.77 215.81, 205.35 217.26 M205.35 217.26 C168.19 218.35, 126.89 217.32, 32 217.26 M205.35 217.26 C138.32 217.22, 73.32 217.5, 32 217.26 M32 217.26 C11.57 217, -0.77 207.75, 0 185.26 M32 217.26 C9.37 216.66, 1.41 205.05, 0 185.26 M0 185.26 C-0.28 146.68, 0.87 108.98, 0 32 M0 185.26 C1.49 125.66, 2.25 65.27, 0 32 M0 32 C-1.9 10.73, 10.73 1.75, 32 0 M0 32 C1.69 12.19, 10.07 -1.14, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(3016.1276818432334 400.8438369260132) rotate(0 6.5 12.5)"><text x="6.5" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">X</text></g><g stroke-linecap="round" transform="translate(2919.473323933077 661.6447478757202) rotate(0 138.29989624023438 117.76034545898438)"><path d="M32 0 C91.95 -1.54, 154.97 -2.26, 244.6 0 M32 0 C84.25 -0.23, 137.33 -0.14, 244.6 0 M244.6 0 C267.79 -1.83, 275.88 10.84, 276.6 32 M244.6 0 C267.29 1.94, 277.5 8.48, 276.6 32 M276.6 32 C278.12 85.33, 276.13 135.01, 276.6 203.52 M276.6 32 C277.1 71.12, 275.53 108.02, 276.6 203.52 M276.6 203.52 C278.23 223.03, 265.45 237.4, 244.6 235.52 M276.6 203.52 C277.31 226.26, 264.11 234.77, 244.6 235.52 M244.6 235.52 C190.68 235.41, 134.19 237.48, 32 235.52 M244.6 235.52 C176.77 237.05, 108.05 236.51, 32 235.52 M32 235.52 C9.22 234.44, 0.81 224.89, 0 203.52 M32 235.52 C10.42 233.42, 1.37 225.12, 0 203.52 M0 203.52 C-0.37 156.8, -0.67 108.95, 0 32 M0 203.52 C-1.47 157.1, -0.56 111.19, 0 32 M0 32 C-1.08 12.65, 10.39 1.97, 32 0 M0 32 C1.69 12.52, 8.54 -0.51, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(3051.7732201733115 766.9050933347046) rotate(0 6 12.5)"><text x="6" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">Y</text></g><g stroke-linecap="round" transform="translate(2929.5148888744834 1033.6838242227434) rotate(0 188.0513916015625 156.10092163085938)"><path d="M32 0 C95.2 -1.11, 157.23 -2.16, 344.1 0 M32 0 C108.74 -0.69, 186.05 0.04, 344.1 0 M344.1 0 C364.95 0.35, 378.08 10.6, 376.1 32 M344.1 0 C366.08 -0.43, 376.09 9.9, 376.1 32 M376.1 32 C373.14 129.51, 372.84 223.1, 376.1 280.2 M376.1 32 C376.42 131.77, 375.06 230.04, 376.1 280.2 M376.1 280.2 C376.59 303.23, 365.4 313.38, 344.1 312.2 M376.1 280.2 C377.02 299.7, 365.4 313.39, 344.1 312.2 M344.1 312.2 C263.9 313.65, 180.77 314.56, 32 312.2 M344.1 312.2 C248.03 310.21, 150.76 310.04, 32 312.2 M32 312.2 C8.8 310.72, -1.98 299.65, 0 280.2 M32 312.2 C9.83 310.29, -1.04 299.91, 0 280.2 M0 280.2 C-0.71 213.5, -2.98 143.39, 0 32 M0 280.2 C-0.59 186.24, -0.91 92.33, 0 32 M0 32 C1.23 12.55, 9.88 -0.44, 32 0 M0 32 C1.48 12.95, 11.74 0.38, 32 0" stroke="#1e1e1e" stroke-width="2" fill="none"></path></g><g transform="translate(3109.066280476046 1177.2847458536028) rotate(0 8.5 12.5)"><text x="8.5" y="17.619999999999997" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="20px" fill="#1e1e1e" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">Z</text></g></svg>
